@@ -2,7 +2,39 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/lib/auth-service';
+
+// Simple auth service inline to avoid import issues
+const authService = {
+  login: (email: string, password: string) => {
+    if (!email || !password) {
+      return { success: false, error: 'Email and password are required' };
+    }
+    if (!email.includes('@')) {
+      return { success: false, error: 'Invalid email format' };
+    }
+    if (password.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters' };
+    }
+    const user = { id: `user_${Date.now()}`, email, name: email.split('@')[0] };
+    const token = btoa(`${email}:${Date.now()}`);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('marketgap_user', JSON.stringify(user));
+      localStorage.setItem('marketgap_token', token);
+    }
+    return { success: true, user };
+  },
+  logout: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('marketgap_user');
+      localStorage.removeItem('marketgap_token');
+    }
+  },
+  getCurrentUser: () => {
+    if (typeof window === 'undefined') return null;
+    const userStr = localStorage.getItem('marketgap_user');
+    return userStr ? JSON.parse(userStr) : null;
+  },
+};
 
 export default function Home() {
   const router = useRouter();
@@ -14,7 +46,6 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    // Check if user is already logged in
     const user = authService.getCurrentUser();
     if (user) {
       setIsLoggedIn(true);
@@ -25,7 +56,6 @@ export default function Home() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
     const result = authService.login(email, password);
     if (result.success) {
       setIsLoggedIn(true);
@@ -33,7 +63,6 @@ export default function Home() {
       setShowLoginModal(false);
       setEmail('');
       setPassword('');
-      // Redirect to upload page
       setTimeout(() => router.push('/upload'), 500);
     } else {
       setError(result.error || 'Login failed');
